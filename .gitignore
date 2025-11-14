@@ -1,0 +1,125 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+research_env/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+backend.log
+frontend.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ChromaDB / Vector Store
+**/vector_store/
+**/chroma.sqlite3
+embeddings_cache.db
+
+# Test directories and files
+test/
+tests/__pycache__/
+**/test_*.py
+create_test_project.py
+initialize_fresh_project.py
+test_queue_integration.py
+test_output.log
+
+# Archive and Project Archive (old projects)
+archive/
+project_archive/
+
+# Extra documentation (keep only root README.md and CLAUDE.md)
+backend/README.md
+frontend/README.md
+backend/EMBEDDING_MIGRATION_GUIDE.md
+SHARING_CHECKLIST.md
+
+# Projects directory (ignore all except test project)
+projects/*
+!projects/test_proj/
+
+# Node
+node_modules/
+.npm
+.pnpm-debug.log*
+
+# Build outputs
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage/
+*.cover
+.pytest_cache/
+
+# Temporary files and unused directories
+tmp/
+temp/
+*.tmp
+prompts/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# User-uploaded files
+**/papers/*.pdf
+!**/papers/.gitkeep
