@@ -1,5 +1,7 @@
 import logging
 import json
+import asyncio
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -965,19 +967,25 @@ Please verify if this Semantic Scholar entry matches the paper you're analyzing.
         """Generate structured AI summary using LLM with specific JSON format."""
         try:
             logger.info("🤖 Generating structured AI summary...")
-            
+
+            # Add delay to prevent connection pool exhaustion and rate limiting
+            # When processing multiple papers sequentially, this gives the HTTP connection
+            # pool time to recover and prevents rapid-fire requests to DeepSeek API
+            logger.info("⏳ Waiting 3 seconds before LLM request to prevent connection issues...")
+            time.sleep(3)
+
             # Use FULL text as requested by user
             text_for_analysis = full_text
             logger.info(f"📄 Using {len(text_for_analysis)} characters for AI analysis (full paper text)")
-            
+
             messages = self.prompt_manager.format_prompt(
                 "structured_paper_analysis",
                 paper_text=text_for_analysis
             )
-            
+
             logger.info(f"📤 Sending request to LLM for structured analysis...")
             logger.debug(f"Prompt message count: {len(messages)}")
-            
+
             # Use simple approach that works (like in the successful test)
             response = self.llm_manager.generate_response(
                 messages=messages,
