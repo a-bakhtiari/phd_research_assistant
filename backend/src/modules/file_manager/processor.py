@@ -612,21 +612,26 @@ class PaperProcessor:
             summary = self._generate_summary(metadata, text_for_ai)
 
             # Step 4.5: Generate structured AI summary
-            if progress_callback:
-                await progress_callback(60, "Generating AI summary...")
-            logger.info(f"Starting AI structured summary generation for: {pdf_path.name}")
-            structured_summary = self._generate_structured_summary(text_for_ai)
-            
-            if structured_summary:
-                logger.info(f"✅ AI structured summary generated successfully for: {pdf_path.name}")
-                logger.info(f"   - Executive summary length: {len(structured_summary.get('executive_summary', ''))}")
-                logger.info(f"   - Context/problem sections: {len(structured_summary.get('context_and_problem_statement', []))}")
-                logger.info(f"   - Research questions: {len(structured_summary.get('research_questions_or_hypotheses', []))}")
-                logger.info(f"   - Methodology sections: {len(structured_summary.get('methodology', []))}")
-                logger.info(f"   - Key findings: {len(structured_summary.get('key_findings_and_results', []))}")
-                logger.info(f"   - Primary contributions: {len(structured_summary.get('primary_contributions', []))}")
-            else:
-                logger.warning(f"❌ AI structured summary generation failed for: {pdf_path.name}")
+            # TEMPORARILY DISABLED: AI summary generation fails frequently with DeepSeek API
+            # TODO: Re-enable when API stability improves or implement retry logic
+            logger.info(f"⚠️  Skipping AI structured summary generation (temporarily disabled)")
+            structured_summary = None
+
+            # if progress_callback:
+            #     await progress_callback(60, "Generating AI summary...")
+            # logger.info(f"Starting AI structured summary generation for: {pdf_path.name}")
+            # structured_summary = self._generate_structured_summary(text_for_ai)
+            #
+            # if structured_summary:
+            #     logger.info(f"✅ AI structured summary generated successfully for: {pdf_path.name}")
+            #     logger.info(f"   - Executive summary length: {len(structured_summary.get('executive_summary', ''))}")
+            #     logger.info(f"   - Context/problem sections: {len(structured_summary.get('context_and_problem_statement', []))}")
+            #     logger.info(f"   - Research questions: {len(structured_summary.get('research_questions_or_hypotheses', []))}")
+            #     logger.info(f"   - Methodology sections: {len(structured_summary.get('methodology', []))}")
+            #     logger.info(f"   - Key findings: {len(structured_summary.get('key_findings_and_results', []))}")
+            #     logger.info(f"   - Primary contributions: {len(structured_summary.get('primary_contributions', []))}")
+            # else:
+            #     logger.warning(f"❌ AI structured summary generation failed for: {pdf_path.name}")
             
             # Step 5: Create standardized filename
             new_filename = self._create_standardized_filename(metadata) + ".pdf"
