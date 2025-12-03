@@ -33,6 +33,9 @@ export default function Papers() {
     queryKey: ['papers', currentProject?.id, statusFilter],
     queryFn: () => papersApi.list(currentProject!.id, { status: statusFilter || undefined }),
     enabled: !!currentProject,
+    staleTime: 5000, // Consider data fresh for 5 seconds
+    refetchInterval: false, // Disable automatic polling
+    refetchOnWindowFocus: false, // Prevent refetch on window focus during batch uploads
   })
 
   // Analyze mutation (replaces upload mutation)
@@ -64,7 +67,6 @@ export default function Papers() {
       }),
     onSuccess: (papers) => {
       // All papers analyzed and added to queue
-      queryClient.invalidateQueries({ queryKey: ['papers'] })
       setShowUploadModal(false)
       setUploadFiles([])
       setUploadFile(null)
@@ -72,9 +74,15 @@ export default function Papers() {
       setCurrentFileIndex(0)
       setCurrentFileName('')
 
-      // Show success message and redirect to queue
-      alert(`Successfully analyzed ${papers.length} paper(s)! Check the Pending tab to review and process them.`)
+      // Switch to pending tab first
       setStatusFilter('pending')
+
+      // Invalidate after state updates complete
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['papers'] })
+        // Show success message after invalidation
+        alert(`Successfully analyzed ${papers.length} paper(s)! Check the Pending tab to review and process them.`)
+      }, 100)
     },
     onError: (error) => {
       console.error('Batch upload failed:', error)
