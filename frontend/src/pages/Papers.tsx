@@ -20,7 +20,10 @@ export default function Papers() {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
+  const [currentFileName, setCurrentFileName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [confirmingPaper, setConfirmingPaper] = useState<Paper | null>(null)
@@ -48,6 +51,34 @@ export default function Papers() {
         setUploadFile(null)
         setUploadProgress(0)
       }
+    },
+  })
+
+  // Batch upload mutation
+  const batchUploadMutation = useMutation({
+    mutationFn: (files: File[]) =>
+      papersApi.uploadBatch(currentProject!.id, files, (current, total, fileName) => {
+        setCurrentFileIndex(current)
+        setCurrentFileName(fileName)
+        setUploadProgress((current / total) * 100)
+      }),
+    onSuccess: (papers) => {
+      // All papers analyzed and added to queue
+      queryClient.invalidateQueries({ queryKey: ['papers'] })
+      setShowUploadModal(false)
+      setUploadFiles([])
+      setUploadFile(null)
+      setUploadProgress(0)
+      setCurrentFileIndex(0)
+      setCurrentFileName('')
+
+      // Show success message and redirect to queue
+      alert(`Successfully analyzed ${papers.length} paper(s)! Check the Pending tab to review and process them.`)
+      setStatusFilter('pending')
+    },
+    onError: (error) => {
+      console.error('Batch upload failed:', error)
+      // Don't clear files so user can retry
     },
   })
 
@@ -109,9 +140,32 @@ export default function Papers() {
 
   // Handle upload
   const handleUpload = () => {
-    if (uploadFile) {
+    // If multiple files selected, use batch upload
+    if (uploadFiles.length > 1) {
+      batchUploadMutation.mutate(uploadFiles)
+    } else if (uploadFile) {
+      // Single file - use existing analyze flow
       analyzeMutation.mutate(uploadFile)
     }
+  }
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length > 1) {
+      // Multiple files selected
+      setUploadFiles(files)
+      setUploadFile(null)
+    } else if (files.length === 1) {
+      // Single file selected
+      setUploadFile(files[0])
+      setUploadFiles([])
+    }
+  }
+
+  // Remove file from batch
+  const removeFile = (index: number) => {
+    setUploadFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   // Handle download PDF
@@ -254,9 +308,12 @@ export default function Papers() {
         onClose={() => {
           setShowUploadModal(false)
           setUploadFile(null)
+          setUploadFiles([])
           setUploadProgress(0)
+          setCurrentFileIndex(0)
+          setCurrentFileName('')
         }}
-        title="Upload Paper"
+        title={uploadFiles.length > 1 ? `Upload ${uploadFiles.length} Papers` : "Upload Paper"}
         size="md"
       >
         <div className="space-y-4">
@@ -269,12 +326,42 @@ export default function Papers() {
               type="file"
               accept=".pdf"
               multiple
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              onChange={handleFileSelect}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
 
-          {/* Upload Progress */}
+          {/* Selected Files List (for batch upload) */}
+          {uploadFiles.length > 0 && (
+            <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 max-h-48 overflow-y-auto">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Selected Files ({uploadFiles.length})
+              </p>
+              <ul className="space-y-2">
+                {uploadFiles.map((file, index) => (
+                  <li key={index} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-900 dark:text-white truncate flex-1">{file.name}</span>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400"
+                      disabled={batchUploadMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Single File Display */}
+          {uploadFile && !uploadFiles.length && (
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              <strong>Selected:</strong> {uploadFile.name}
+            </div>
+          )}
+
+          {/* Upload Progress - Single File */}
           {analyzeMutation.isPending && (
             <div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -284,13 +371,33 @@ export default function Papers() {
                 />
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                Uploading... {uploadProgress.toFixed(0)}%
+                Analyzing... {uploadProgress.toFixed(0)}%
               </p>
             </div>
           )}
 
+          {/* Upload Progress - Batch */}
+          {batchUploadMutation.isPending && (
+            <div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                Analyzing {currentFileIndex} of {uploadFiles.length} files...
+              </p>
+              {currentFileName && (
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 truncate">
+                  Current: {currentFileName}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Error */}
-          {analyzeMutation.isError && (
+          {(analyzeMutation.isError || batchUploadMutation.isError) && (
             <p className="text-sm text-red-600 dark:text-red-400">
               Upload failed. Please try again.
             </p>
@@ -300,18 +407,28 @@ export default function Papers() {
           <div className="flex gap-3">
             <button
               onClick={handleUpload}
-              disabled={!uploadFile || analyzeMutation.isPending}
+              disabled={(!uploadFile && uploadFiles.length === 0) || analyzeMutation.isPending || batchUploadMutation.isPending}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              {analyzeMutation.isPending ? 'Analyzing...' : 'Analyze PDF'}
+              {batchUploadMutation.isPending
+                ? `Analyzing ${currentFileIndex}/${uploadFiles.length}...`
+                : analyzeMutation.isPending
+                ? 'Analyzing...'
+                : uploadFiles.length > 1
+                ? `Analyze ${uploadFiles.length} PDFs`
+                : 'Analyze PDF'}
             </button>
             <button
               onClick={() => {
                 setShowUploadModal(false)
                 setUploadFile(null)
+                setUploadFiles([])
                 setUploadProgress(0)
+                setCurrentFileIndex(0)
+                setCurrentFileName('')
               }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              disabled={analyzeMutation.isPending || batchUploadMutation.isPending}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>

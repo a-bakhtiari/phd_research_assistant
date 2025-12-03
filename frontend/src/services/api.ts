@@ -166,6 +166,38 @@ export const papersApi = {
   },
 
   /**
+   * Upload multiple PDFs for batch analysis
+   * Each file is analyzed quickly without full processing
+   */
+  uploadBatch: async (
+    projectId: string,
+    files: File[],
+    onProgress?: (currentFile: number, totalFiles: number, fileName: string) => void
+  ): Promise<Paper[]> => {
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+
+    const { data } = await apiClient.post<Paper[]>(
+      `/papers/upload-batch?project_id=${projectId}`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            // Estimate which file we're on based on upload progress
+            const overallProgress = progressEvent.loaded / progressEvent.total
+            const currentFileIndex = Math.floor(overallProgress * files.length)
+            const currentFile = Math.min(currentFileIndex + 1, files.length)
+            const fileName = files[currentFileIndex]?.name || ''
+            onProgress(currentFile, files.length, fileName)
+          }
+        },
+      }
+    )
+    return data
+  },
+
+  /**
    * Complete processing after user confirmation for large PDFs
    */
   confirmProcessing: async (projectId: string, paperId: number, forceClean: boolean): Promise<Paper> => {

@@ -109,6 +109,81 @@ async def upload_paper(
         )
 
 
+@router.post("/upload-batch", response_model=List[PaperResponse], status_code=status.HTTP_201_CREATED)
+async def upload_batch(
+    project_id: str = Query(..., description="Project ID"),
+    files: List[UploadFile] = File(..., description="PDF files to upload"),
+    paper_service: Annotated[PaperService, Depends(get_paper_service)] = None
+):
+    """
+    Upload multiple paper PDFs for batch analysis.
+
+    Each paper will be analyzed (quick scan without full processing):
+    - PDF page count
+    - Basic validation
+    - Stored in pending queue for user review
+
+    Args:
+        project_id: Project identifier
+        files: List of PDF files to upload
+
+    Returns:
+        List of analyzed papers awaiting user confirmation
+
+    Raises:
+        HTTPException: If files are not PDFs or analysis fails
+    """
+    # Validate all files are PDFs
+    non_pdf_files = [f.filename for f in files if not f.filename.endswith('.pdf')]
+    if non_pdf_files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Only PDF files are supported. Invalid files: {', '.join(non_pdf_files)}"
+        )
+
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files provided"
+        )
+
+    results = []
+    errors = []
+
+    logger.info(f"Batch uploading {len(files)} papers to project {project_id}")
+
+    # Process each file sequentially
+    for idx, file in enumerate(files, 1):
+        try:
+            logger.info(f"Analyzing paper {idx}/{len(files)}: {file.filename}")
+
+            # Analyze paper (quick operation, no full processing)
+            paper = await paper_service.analyze_paper(file.file, file.filename)
+            results.append(paper)
+
+            logger.info(f"Successfully analyzed paper {idx}/{len(files)}: {file.filename}")
+
+        except Exception as e:
+            error_msg = f"{file.filename}: {str(e)}"
+            logger.error(f"Error analyzing paper {file.filename}: {e}")
+            errors.append(error_msg)
+            # Continue with other files instead of failing entire batch
+
+    # If all files failed, return error
+    if len(errors) == len(files):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"All uploads failed: {'; '.join(errors)}"
+        )
+
+    # If some files failed, log warning but return successful ones
+    if errors:
+        logger.warning(f"Some uploads failed ({len(errors)}/{len(files)}): {'; '.join(errors)}")
+
+    logger.info(f"Batch upload complete: {len(results)}/{len(files)} papers analyzed successfully")
+    return results
+
+
 @router.post("/analyze-upload", response_model=PaperResponse, status_code=status.HTTP_200_OK)
 async def analyze_upload(
     project_id: str = Query(..., description="Project ID"),
